@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  STAFF
+  MANAGER
+  OWNER
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String?
+  role         Role      @default(CUSTOMER)
+  orders       Order[]
+  reviews      Review[]
+  addresses    Address[]
+  auditLogs    AuditLog[] @relation("ActorLogs")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  products  Product[]
+  createdAt DateTime  @default(now())
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  description String
+  price       Int
+  stock       Int
+  tags        String[]
+  categoryId  String
+  category    Category      @relation(fields: [categoryId], references: [id])
+  images      ProductImage[]
+  reviews     Review[]
+  orderItems  OrderItem[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  url       String
+  alt       String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String
+  productId String
+  userId    String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  discountPercent Int
+  active          Boolean  @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime @default(now())
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  userId           String?
+  user             User?       @relation(fields: [userId], references: [id])
+  status           OrderStatus @default(PENDING)
+  total            Int
+  stripeSessionId  String?     @unique
+  stripePaymentId  String?
+  couponCode       String?
+  notesInternal    String?
+  items            OrderItem[]
+  shippingAddressId String?
+  shippingAddress  Address?    @relation(fields: [shippingAddressId], references: [id])
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model Address {
+  id         String  @id @default(cuid())
+  userId      String?
+  user        User?   @relation(fields: [userId], references: [id])
+  fullName   String
+  line1      String
+  city       String
+  country    String
+  postalCode String
+  orders     Order[]
+}
+
+model CmsHome {
+  id                 String   @id @default(cuid())
+  heroTitle          String
+  heroSubtitle       String
+  heroImage          String
+  featuredCategories String[]
+  trustBadges        String[]
+  updatedAt          DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation("ActorLogs", fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  payload   Json
+  createdAt DateTime @default(now())
+}
